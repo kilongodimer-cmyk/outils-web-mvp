@@ -1,23 +1,144 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Code Generator — Outil Web Gratuit</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator — Outil Web Gratuit</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Inclusion de la bibliothèque qrcode.js pour le rendu local -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-center items-center p-6">
-  <main class="max-w-xl w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
-    <span class="inline-block px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-100 text-emerald-800">
-      /qr-code-generator/index.html
-    </span>
-    <h1 class="text-2xl font-bold tracking-tight">QR Code Generator</h1>
-    <p class="text-sm text-slate-600">Page de validation de la structure pour l'outil QR Code Generator.</p>
-    <div class="pt-4 border-t border-slate-100">
-      <a href="/" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-emerald-500 hover:text-white text-sm font-medium transition">
-        ← Retour à l'accueil (/)
-      </a>
-    </div>
-  </main>
+<body class="bg-slate-50 text-slate-950 min-h-screen flex flex-col justify-between">
+    <header class="p-4 border-b border-slate-200 bg-white sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <a href="/" class="text-sm font-medium text-indigo-600 hover:underline flex items-center gap-1">← Retour à l'accueil</a>
+            <span class="text-xs font-mono text-slate-400">/qr-code-generator/</span>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto w-full p-4 sm:p-6 my-auto">
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 mb-1">QR Code Generator</h1>
+            <p class="text-sm text-slate-600">Générez des codes QR personnalisés instantanément à partir de n'importe quel texte ou URL.</p>
+        </div>
+
+        <!-- Garantie de confidentialité -->
+        <div class="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+            <span class="font-bold">🔒 Sécurité :</span> Traitement 100% local dans votre navigateur (aucune donnée envoyée à un serveur).
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Entrée de données -->
+            <div class="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+                <h2 class="text-sm font-bold text-slate-900 mb-3">1. Texte ou URL à encoder</h2>
+                <div class="mb-4 flex-grow">
+                    <textarea id="qr-input" rows="5" placeholder="Entrez une URL (ex: https://example.com) ou du texte..." class="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-y"></textarea>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="btn-generate" class="flex-1 py-2.5 bg-indigo-600 text-white font-medium text-xs rounded-xl hover:bg-indigo-700 transition cursor-pointer">✨ Générer</button>
+                    <button id="btn-clear" class="px-4 py-2.5 bg-white border border-slate-300 text-rose-600 font-medium text-xs rounded-xl hover:bg-rose-50 transition cursor-pointer">🗑️ Effacer</button>
+                </div>
+            </div>
+
+            <!-- Affichage du QR Code -->
+            <div class="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                <h2 class="text-sm font-bold text-slate-900 mb-3 w-full text-left">2. Résultat</h2>
+                <div id="qrcode-container" class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center min-h-[200px] w-full mb-4">
+                    <span id="placeholder-text" class="text-slate-400 italic text-xs">Le QR code apparaîtra ici...</span>
+                    <div id="qrcode" class="hidden"></div>
+                </div>
+                <button id="btn-download" disabled class="w-full py-2.5 bg-slate-200 text-slate-400 font-medium text-xs rounded-xl transition cursor-not-allowed">⬇️ Télécharger en PNG</button>
+            </div>
+        </div>
+
+        <!-- Zone de message d'erreur -->
+        <div id="status-message" class="p-3 rounded-xl text-xs font-medium hidden"></div>
+    </main>
+
+    <footer class="py-6 text-center text-xs text-slate-500 border-t border-slate-200 mt-10">
+        <a href="/" class="hover:underline">Accueil</a>
+    </footer>
+
+    <script>
+        const input = document.getElementById('qr-input');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const placeholder = document.getElementById('placeholder-text');
+        const btnDownload = document.getElementById('btn-download');
+        const statusMsg = document.getElementById('status-message');
+
+        let qrInstance = null;
+
+        function showError(text) {
+            statusMsg.textContent = text;
+            statusMsg.className = "p-3 rounded-xl text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200";
+        }
+
+        function hideError() {
+            statusMsg.className = "hidden";
+        }
+
+        document.getElementById('btn-generate').addEventListener('click', () => {
+            hideError();
+            const val = input.value.trim();
+            if (!val) {
+                showError("❌ Erreur : Veuillez entrer du texte ou une URL à encoder.");
+                return;
+            }
+
+            // Réinitialiser le conteneur
+            qrcodeDiv.innerHTML = "";
+            qrcodeDiv.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+
+            try {
+                // Génération du QR Code via qrcode.js
+                new QRCode(qrcodeDiv, {
+                    text: val,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#0f172a",
+                    colorLight : "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                // Activer le bouton de téléchargement après un court délai pour laisser le canvas se dessiner
+                setTimeout(() => {
+                    const canvas = qrcodeDiv.querySelector('canvas');
+                    if (canvas) {
+                        btnDownload.disabled = false;
+                        btnDownload.className = "w-full py-2.5 bg-emerald-600 text-white font-medium text-xs rounded-xl hover:bg-emerald-700 transition cursor-pointer";
+                    }
+                }, 100);
+
+            } catch (e) {
+                showError("❌ Erreur lors de la génération du QR Code.");
+            }
+        });
+
+        // Téléchargement en PNG
+        btnDownload.addEventListener('click', () => {
+            const canvas = qrcodeDiv.querySelector('canvas');
+            if (!canvas) return;
+            
+            const imageURL = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = imageURL;
+            link.download = 'qrcode-mvp.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            input.value = "";
+            qrcodeDiv.innerHTML = "";
+            qrcodeDiv.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            btnDownload.disabled = true;
+            btnDownload.className = "w-full py-2.5 bg-slate-200 text-slate-400 font-medium text-xs rounded-xl transition cursor-not-allowed";
+            hideError();
+            input.focus();
+        });
+    </script>
 </body>
 </html>
